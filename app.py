@@ -3,8 +3,8 @@ import streamlit as st
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 import google.generativeai as genai
-from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -14,7 +14,7 @@ load_dotenv()
 os.getenv(" ")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-
+# Extract the text data from the pdf
 def get_pdf_text(pdf_docs):
     text=""
     for pdf in pdf_docs:
@@ -24,19 +24,19 @@ def get_pdf_text(pdf_docs):
     return  text
 
 
-
+# splitting the text into chunks using recursive character splitting
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     chunks = text_splitter.split_text(text)
     return chunks
 
-
+# use FAISS vector storage
 def get_vector_store(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
 
-
+# Creating the conversational chain to communicat with the model
 def get_conversational_chain():
 
     prompt_template = """
@@ -47,15 +47,14 @@ def get_conversational_chain():
     Answer:
     """
 
-    model = ChatGoogleGenerativeAI(model="gemini-pro",
-                             temperature=0.3)
+    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
 
     prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
 
     return chain
 
-
+# Streamlit UI for testing purposes
 def user_input(user_question):
     embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
     
@@ -64,13 +63,15 @@ def user_input(user_question):
 
     chain = get_conversational_chain()
 
-    
+    # try:
     response = chain(
-        {"input_documents":docs, "question": user_question}
-        , return_only_outputs=True)
+    {"input_documents":docs, "question": user_question}
+    , return_only_outputs=True)
 
     print(response)
     st.write("Reply: ", response["output_text"])
+    # except Exception(BlockedPromptException):
+    #     print("Try different prompts")
 
 def main():
     st.set_page_config("Chat PDF")
